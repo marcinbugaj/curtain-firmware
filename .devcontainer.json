@@ -1,0 +1,13 @@
+{
+        "name": "dev",
+        "image": "curtain-firmware",
+        "extensions": [
+                "llvm-vs-code-extensions.vscode-clangd"
+        ],
+        "workspaceMount": "source=${localWorkspaceFolder}/firmware,target=/firmware,type=bind,consistency=delegated",
+        "workspaceFolder": "/firmware",
+        "settings": {
+                "clangd.path": "clangd-14"
+        }
+}
+
