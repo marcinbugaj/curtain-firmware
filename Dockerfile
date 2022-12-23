@@ -25,4 +25,8 @@ RUN apt update && apt install -y \
 COPY install-openocd.sh /
 RUN /install-openocd.sh
 
+RUN apt update && apt install -y \
+  python3 \
+  vim
+
 ENV PICO_SDK_PATH=/pico-sdk
