@@ -34,12 +34,35 @@ public:
   bool isReadable() const { return uart_is_readable(uart1); }
 };
 
-bool repeating_timer_callback(struct repeating_timer *t) {
-  gpio_put(STEP_PIN, current);
-  current = !current;
+class StepPinSqWaveImpl : public tmc2209::StepPinSqWave {
+  struct repeating_timer timer;
+  const uint pin;
 
-  return true;
-}
+public:
+  StepPinSqWaveImpl(uint pin) : pin(pin) {}
+
+  virtual void start(size_t periodUs) {
+    add_repeating_timer_us(periodUs /*312*/, _callback, this, &timer);
+  }
+  virtual void stop() { cancel_repeating_timer(&timer); }
+
+  static bool _callback(struct repeating_timer *t) {
+    auto impl = (StepPinSqWaveImpl *)t->user_data;
+
+    return impl->callback(t);
+  }
+
+  bool callback(struct repeating_timer *t) {
+    gpio_put(pin, current);
+    current = !current;
+    return true;
+  }
+};
+
+class GPIO_OutImpl : public tmc2209::GPIO_Out {
+public:
+  void set(bool state) { gpio_put(ENN_PIN, state); }
+};
 
 static int diagReported = 0;
 
@@ -53,7 +76,6 @@ void callback(uint gpio, uint32_t event_mask) {
 void configure_ENN() {
   gpio_init(ENN_PIN);
   gpio_set_dir(ENN_PIN, GPIO_OUT);
-  gpio_put(ENN_PIN, 0);
 }
 
 void configure_STEP() {
@@ -88,15 +110,17 @@ int main() {
   printf("Board started!\n");
 
   auto uart = std::make_unique<UARTImpl>();
-  auto driver = tmc2209::create(std::move(uart));
+  auto wave = std::make_unique<StepPinSqWaveImpl>(STEP_PIN);
+  auto enn = std::make_unique<GPIO_OutImpl>();
+  auto driver =
+      tmc2209::create(std::move(uart), std::move(wave), std::move(enn));
   driver->initialize();
 
-  struct repeating_timer timer;
-  add_repeating_timer_us(156 /*312*/, repeating_timer_callback, NULL, &timer);
+  driver->move(0);
 
   while (true) {
-    // dump<TSTEP_t>();
-    // dump<SG_RESULT_t>();
+
+    driver->debug();
     if (diagReported) {
       printf("DIAG: %d\n", diagReported);
     }
