@@ -414,7 +414,7 @@ class DriverImpl : public Driver {
   TxCount_t getTxCount() {
     const TMC2209ReadReq_t req = {0, 0x02};
     TMC2209ReadResp_t q = query(&req);
-    TxCount_t r = {q.data};
+    TxCount_t r = {(uint8_t)q.data};
     return r;
   }
 
