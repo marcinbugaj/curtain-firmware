@@ -23,6 +23,7 @@ add_compile_options(-Wall
 
 add_executable(blink
         blink.cpp
+	tmc2209.cpp
         )
 
 # pull in common dependencies
