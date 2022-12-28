@@ -1,5 +1,24 @@
 cmake_minimum_required(VERSION 3.12)
 
+find_package(Perl)
+if(NOT PERL_FOUND)
+    message(FATAL_ERROR "Perl is needed for generating the fsdata.c file")
+endif()
+
+set(MAKE_FS_DATA_SCRIPT /pico-sdk/lib/lwip/src/apps/http/makefsdata/makefsdata)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts-ts -fno-exceptions -fno-rtti")
+
+execute_process(COMMAND
+        perl ${MAKE_FS_DATA_SCRIPT}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        ECHO_OUTPUT_VARIABLE
+        ECHO_ERROR_VARIABLE
+        )
+file(RENAME fsdata.c my_fsdata.c)
+
+set(PICO_BOARD pico_w)
+
 # Pull in SDK (must be before project)
 include(pico_sdk_import.cmake)
 
@@ -22,15 +41,33 @@ add_compile_options(-Wall
 	-Werror
         )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts-ts")
-
 add_executable(blink
         blink.cpp
 	tmc2209.cpp
+	ENNPinImpl.cpp
+	StepPinSqWaveImpl.cpp
+	UARTImpl.cpp
+	picow_ntp_client.cpp
+	dhcp.c
+	UrlDecode.cpp
+	Persistence.cpp
+	Server.cpp
+	ParseConfig.cpp
+	Utils.cpp
         )
 
 # pull in common dependencies
-target_link_libraries(blink pico_stdlib hardware_pwm)
+target_link_libraries(blink
+	pico_stdlib
+	hardware_pwm
+	hardware_rtc
+	pico_multicore
+	pico_cyw43_arch_lwip_threadsafe_background
+	pico_lwip_http
+	#pico_cyw43_arch_lwip_poll
+	)
+
+target_include_directories(blink PRIVATE . ${CMAKE_CURRENT_LIST_DIR})
 
 pico_enable_stdio_uart(blink 1)
 

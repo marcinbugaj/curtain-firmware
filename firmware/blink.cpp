@@ -1,68 +1,40 @@
-/**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 #include "hardware/gpio.h"
-#include "hardware/pwm.h"
-#include "hardware/uart.h"
+#include "hardware/rtc.h"
+#include "hardware/watchdog.h"
+#include "pico/cyw43_arch.h"
+#include "pico/multicore.h"
 #include "pico/stdlib.h"
 #include "pico/time.h"
 #include "pico/types.h"
+#include "pico/util/datetime.h"
 
+#include "lwip/apps/httpd.h"
+#include "lwip/pbuf.h"
+#include "lwip/tcp.h"
+
+#include "dhcp.h"
+#include "picow_ntp_client.h"
+
+#include <algorithm>
+#include <atomic>
 #include <cstdint>
+#include <functional>
+#include <optional>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 
+#include "ENNPinImpl.h"
+#include "ParseConfig.h"
+#include "Persistence.h"
+#include "Server.h"
+#include "StepPinSqWaveImpl.h"
+#include "UARTImpl.h"
+#include "UrlDecode.h"
+#include "Utils.h"
 #include "tmc2209.h"
 
-const uint ENN_PIN = 8;
-const uint STEP_PIN = 6;
-const uint DIAG_PIN = 7;
-
-bool current = false;
-
-class UARTImpl : public tmc2209::UART {
-public:
-  void read(uint8_t *dest, size_t size) {
-    uart_read_blocking(uart1, dest, size);
-  }
-  void write(const uint8_t *src, size_t size) {
-    uart_write_blocking(uart1, src, size);
-  }
-  bool isReadable() const { return uart_is_readable(uart1); }
-};
-
-class StepPinSqWaveImpl : public tmc2209::StepPinSqWave {
-  struct repeating_timer timer;
-  const uint pin;
-
-public:
-  StepPinSqWaveImpl(uint pin) : pin(pin) {}
-
-  virtual void start(size_t periodUs) {
-    add_repeating_timer_us(periodUs /*312*/, _callback, this, &timer);
-  }
-  virtual void stop() { cancel_repeating_timer(&timer); }
-
-  static bool _callback(struct repeating_timer *t) {
-    auto impl = (StepPinSqWaveImpl *)t->user_data;
-
-    return impl->callback(t);
-  }
-
-  bool callback(struct repeating_timer *t) {
-    gpio_put(pin, current);
-    current = !current;
-    return true;
-  }
-};
-
-class GPIO_OutImpl : public tmc2209::GPIO_Out {
-public:
-  void set(bool state) { gpio_put(ENN_PIN, state); }
-};
+#include "wiring.h"
 
 static int diagReported = 0;
 
@@ -73,16 +45,6 @@ void callback(uint gpio, uint32_t event_mask) {
   diagReported++;
 }
 
-void configure_ENN() {
-  gpio_init(ENN_PIN);
-  gpio_set_dir(ENN_PIN, GPIO_OUT);
-}
-
-void configure_STEP() {
-  gpio_init(STEP_PIN);
-  gpio_set_dir(STEP_PIN, GPIO_OUT);
-}
-
 void configure_DIAG() {
   gpio_init(DIAG_PIN);
   gpio_set_dir(DIAG_PIN, GPIO_IN);
@@ -90,40 +52,166 @@ void configure_DIAG() {
                                      &callback);
 }
 
-void configure_UART() {
-  uart_init(uart1, 115200);
-  gpio_set_function(4, GPIO_FUNC_UART);
-  gpio_set_function(5, GPIO_FUNC_UART);
+static volatile bool alarm = false;
+static void alarm_callback(void) { alarm = true; }
+
+void startRTC(struct tm *t) {
+  rtc_init();
+
+  datetime_t date;
+  date.year = t->tm_year;
+  date.month = t->tm_mon + 1;
+  date.day = t->tm_mday;
+  date.hour = t->tm_hour;
+  date.min = t->tm_min;
+  date.sec = 0;
+  date.dotw = t->tm_wday;
+
+  rtc_set_datetime(&date);
+
+  const Config_t &c = readConfig().value();
+
+#if 1
+  datetime_t alarm = {.year = -1,
+                      .month = -1,
+                      .day = -1,
+                      .dotw = -1,
+                      .hour = (int8_t)c.hour,
+                      .min = (int8_t)c.minute,
+                      .sec = 00};
+#else
+  datetime_t alarm = date;
+  alarm.min += 1;
+#endif
+
+  rtc_set_alarm(&alarm, &alarm_callback);
+}
+
+void connectToNetwork() {
+  cyw43_arch_enable_sta_mode();
+
+  const Config_t &c = readConfig().value();
+
+  if (cyw43_arch_wifi_connect_timeout_ms(c.ssid, c.password,
+                                         CYW43_AUTH_WPA2_AES_PSK, 10000)) {
+    printf("Failed to connect to WIFI network\n");
+    abort();
+  }
+}
+
+void printCurrentDate() {
+  datetime_t t = {0};
+  rtc_get_datetime(&t);
+  char datetime_buf[256];
+  char *datetime_str = &datetime_buf[0];
+  datetime_to_str(datetime_str, sizeof(datetime_buf), &t);
+  printf("Alarm Fired At %s\n", datetime_str);
+  stdio_flush();
+}
+
+static void initializeCYW43() {
+  if (cyw43_arch_init()) {
+    printf("Failed to initialise CYW43 driver\n");
+    abort();
+  }
+}
+
+void doJob() {
+  initializeCYW43();
+
+  connectToNetwork();
+
+  auto t = timeFixViaNTP();
+
+  cyw43_arch_deinit();
+
+  configure_DIAG();
+  auto uart = createUART();
+  auto wave = createStepPinSqWave();
+  auto enn = createENNPin();
+  auto driver = std::move(
+      tmc2209::create(std::move(uart), std::move(wave), std::move(enn)));
+  driver->initialize();
+
+  startRTC(t); // only after driver is initialized
+
+  while (true) {
+    if (alarm) {
+      alarm = false;
+
+      printCurrentDate();
+
+      const auto prevDiag = diagReported;
+
+      driver->enable();
+      sleep_ms(100);
+
+      const auto start = get_absolute_time();
+      driver->move(0);
+
+      while (prevDiag == diagReported &&
+             (absolute_time_diff_us(start, get_absolute_time()) < 10e6)) {
+        sleep_ms(100);
+      }
+
+      driver->stop();
+
+      sleep_ms(100);
+      driver->disable();
+    }
+
+    sleep_ms(5000);
+  }
+}
+
+const Config_t &readConfigUnsafe() {
+  auto c = readConfig();
+  if (!c.has_value()) {
+    error_out("Cannot read config");
+  }
+  return c.value().get();
+}
+
+void rebootIntoNormalMode() {
+  watchdog_enable(100, 1);
+  for (;;) {
+  }
+}
+
+void strategy() {
+  if (watchdog_caused_reboot()) {
+    printf("Rebooting into normal mode\n");
+
+    const Config_t &c = readConfigUnsafe();
+    printf("Config: %s\n", to_string(c).c_str());
+
+    doJob();
+  } else {
+    printf("Booting into config mode\n");
+
+    auto form = runServerForXMintes();
+
+    auto newConfig = parseConfig(form);
+
+    if (newConfig.has_value()) {
+      printf("Saving config: %s\n", to_string(newConfig.value()).c_str());
+      if (!saveConfig(newConfig.value())) {
+        error_out("Could not save config");
+      } else {
+        printf("Config saved\n");
+      }
+    }
+
+    readConfigUnsafe();
+
+    rebootIntoNormalMode();
+  }
 }
 
 int main() {
   stdio_init_all();
 
-  configure_UART();
+  sleep_ms(1000);
 
-#if 1
-  configure_ENN();
-  configure_STEP();
-  configure_DIAG();
-#endif
-
-  printf("Board started!\n");
-
-  auto uart = std::make_unique<UARTImpl>();
-  auto wave = std::make_unique<StepPinSqWaveImpl>(STEP_PIN);
-  auto enn = std::make_unique<GPIO_OutImpl>();
-  auto driver =
-      tmc2209::create(std::move(uart), std::move(wave), std::move(enn));
-  driver->initialize();
-
-  driver->move(0);
-
-  while (true) {
-
-    driver->debug();
-    if (diagReported) {
-      printf("DIAG: %d\n", diagReported);
-    }
-    sleep_ms(500);
-  }
+  strategy();
 }

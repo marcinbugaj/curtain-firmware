@@ -13,8 +13,8 @@ struct UART {
   virtual bool isReadable() const = 0;
 };
 
-struct GPIO_Out {
-  virtual ~GPIO_Out() = default;
+struct ENNPin {
+  virtual ~ENNPin() = default;
   virtual void set(bool) = 0;
 };
 
@@ -25,7 +25,7 @@ struct StepPinSqWave {
 
 using UARTPtr = std::unique_ptr<UART>;
 using StepPinSqWavePtr = std::unique_ptr<StepPinSqWave>;
-using GPIO_OutPtr = std::unique_ptr<GPIO_Out>;
+using ENNPinPtr = std::unique_ptr<ENNPin>;
 
 class Driver {
 public:
@@ -37,8 +37,11 @@ public:
 
   virtual void move(uint32_t rpm) = 0;
   virtual void stop() = 0;
+
+  virtual void enable() = 0;
+  virtual void disable() = 0;
 };
 
-std::unique_ptr<Driver> create(UARTPtr, StepPinSqWavePtr, GPIO_OutPtr);
+std::unique_ptr<Driver> create(UARTPtr, StepPinSqWavePtr, ENNPinPtr);
 
 } // namespace tmc2209

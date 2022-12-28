@@ -1,9 +1,14 @@
 {
         "name": "dev",
         "image": "curtain-firmware",
+	"privileged": true,
         "extensions": [
-                "llvm-vs-code-extensions.vscode-clangd"
-        ],
+			"ms-vscode.cmake-tools",
+			"twxs.cmake",
+			"ms-vscode.cpptools-themes",
+			"ms-vscode.cpptools-extension-pack",
+			"ms-vscode.cpptools"
+		],
         "workspaceMount": "source=${localWorkspaceFolder}/firmware,target=/firmware,type=bind,consistency=delegated",
         "workspaceFolder": "/firmware",
         "settings": {

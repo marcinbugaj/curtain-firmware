@@ -388,7 +388,7 @@ template <> struct Register<GCONF_t> {
 class DriverImpl : public Driver {
   UARTPtr uart;
   StepPinSqWavePtr wave;
-  GPIO_OutPtr enn;
+  ENNPinPtr enn;
 
   TMC2209ReadResp_t query(const TMC2209ReadReq_t *req) {
     const Buffer4Byte_t b1 = tmc2209_SerializeReadReq(req);
@@ -515,7 +515,7 @@ class DriverImpl : public Driver {
   }
 
 public:
-  DriverImpl(UARTPtr uart, StepPinSqWavePtr wave, GPIO_OutPtr enn)
+  DriverImpl(UARTPtr uart, StepPinSqWavePtr wave, ENNPinPtr enn)
       : uart(std::move(uart)), wave(std::move(wave)), enn(std::move(enn)) {}
 
   virtual ~DriverImpl() { wave->stop(); }
@@ -527,8 +527,6 @@ public:
     set_IRunIHold();
     set_SGTHRS();
     set_TCOOLTHRS_t();
-
-    enn->set(false);
   }
 
   virtual void onDiagPin() {}
@@ -541,12 +539,16 @@ public:
   virtual void move(uint32_t rpm) { wave->start(156); }
 
   virtual void stop() { wave->stop(); }
+
+  virtual void enable() { enn->set(false); }
+
+  virtual void disable() { enn->set(true); }
 };
 
 } // namespace
 
 std::unique_ptr<Driver> create(UARTPtr uart, StepPinSqWavePtr wave,
-                               GPIO_OutPtr enn) {
+                               ENNPinPtr enn) {
   return std::make_unique<DriverImpl>(std::move(uart), std::move(wave),
                                       std::move(enn));
 }

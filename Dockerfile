@@ -27,6 +27,10 @@ RUN /install-openocd.sh
 
 RUN apt update && apt install -y \
   python3 \
-  vim
+  vim \
+  perl
+
+RUN apt update && apt install -y \
+  gdb-multiarch
 
 ENV PICO_SDK_PATH=/pico-sdk
