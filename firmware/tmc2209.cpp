@@ -523,6 +523,8 @@ public:
   virtual void initialize() {
     printf("Initialization\n");
 
+    disable();
+
     set_gconf();
     set_IRunIHold();
     set_SGTHRS();
