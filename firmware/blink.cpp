@@ -150,7 +150,7 @@ void doJob() {
       driver->move(0);
 
       while (prevDiag == diagReported &&
-             (absolute_time_diff_us(start, get_absolute_time()) < 16e6)) {
+             (absolute_time_diff_us(start, get_absolute_time()) < 7e6)) {
         sleep_ms(100);
       }
 
