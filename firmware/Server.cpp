@@ -9,7 +9,18 @@
 
 #include "UrlEncodedSettingsForm.h"
 
+#include <atomic>
+
+static std::atomic_bool finished = false;
+
 /* cgi-handler triggered by a request for "/leds.cgi" */
+const char *ommit_handler(int iIndex, int iNumParams, char *pcParam[],
+                          char *pcValue[]) {
+
+  finished = true;
+  return "/ok.html";
+}
+
 const char *settings_handler(int iIndex, int iNumParams, char *pcParam[],
                              char *pcValue[]) {
   return "/settings.html";
@@ -59,12 +70,15 @@ const char *settings_submit_handler(int iIndex, int iNumParams, char *pcParam[],
     }
   }
 
+  finished = true;
+
   /* Our response to the "SUBMIT" is to simply send the same page again*/
   return "/ok.html";
 }
 
 static const tCGI cgi_handlers[] = {
     {"/settings", settings_handler},
+    {"/ommit", ommit_handler},
     {"/settings_submit", settings_submit_handler}};
 
 void createOwnNetwork() {
@@ -97,7 +111,14 @@ UrlEncodedSettingsForm_t runServerForXMintes() {
 
   httpd_init();
   http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
-  sleep_ms(1000 * 3 * 60);
+
+  const auto start = get_absolute_time();
+  while (!finished &&
+         (absolute_time_diff_us(start, get_absolute_time()) < 180e6)) {
+    sleep_ms(1000);
+  }
+
+  sleep_ms(2000); // time required for server to send the reponse
 
   dhcp_server_deinit(&dhcp_server);
 
