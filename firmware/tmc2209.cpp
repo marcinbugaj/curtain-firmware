@@ -523,12 +523,18 @@ public:
   virtual void initialize() {
     printf("Initialization\n");
 
-    disable();
+    // after startup the driver needs the motor to be in stand-still state
+
+    enable();
+    sleep_ms(5000);
 
     set_gconf();
     set_IRunIHold();
     set_SGTHRS();
     set_TCOOLTHRS_t();
+
+    sleep_ms(5000);
+    disable();
   }
 
   virtual void onDiagPin() {}
