@@ -122,6 +122,20 @@ static void initializeCYW43() {
   }
 }
 
+void testRun(tmc2209::Driver &driver) {
+  driver.enable();
+  sleep_ms(100);
+
+  driver.move(0);
+
+  sleep_ms(5000);
+
+  driver.stop();
+
+  sleep_ms(100);
+  driver.disable();
+}
+
 void doJob() {
   initializeCYW43();
 
@@ -138,6 +152,9 @@ void doJob() {
   auto driver = std::move(
       tmc2209::create(std::move(uart), std::move(wave), std::move(enn)));
   driver->initialize();
+
+  testRun(*driver);
+  sleep_ms(1000);
 
   startRTC(t); // only after driver is initialized
 
