@@ -71,20 +71,26 @@ void startRTC(struct tm *t) {
 
   const Config_t &c = readConfig().value();
 
-#if 1
-  datetime_t alarm = {.year = -1,
-                      .month = -1,
-                      .day = -1,
-                      .dotw = -1,
-                      .hour = (int8_t)c.hour,
-                      .min = (int8_t)c.minute,
-                      .sec = 00};
-#else
-  datetime_t alarm = date;
-  alarm.min += 1;
-#endif
+  datetime_t alarmSet;
+  if (c.hour == 0 && c.minute == 0) {
+    alarmSet = {.year = -1,
+                .month = -1,
+                .day = -1,
+                .dotw = -1,
+                .hour = -1,
+                .min = -1,
+                .sec = 00};
+  } else {
+    alarmSet = {.year = -1,
+                .month = -1,
+                .day = -1,
+                .dotw = -1,
+                .hour = (int8_t)c.hour,
+                .min = (int8_t)c.minute,
+                .sec = 00};
+  }
 
-  rtc_set_alarm(&alarm, &alarm_callback);
+  rtc_set_alarm(&alarmSet, &alarm_callback);
 }
 
 void connectToNetwork() {
