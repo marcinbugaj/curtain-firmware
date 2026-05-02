@@ -1,18 +1,22 @@
 {
         "name": "dev",
         "image": "curtain-firmware",
-	"privileged": true,
+        "privileged": true,
         "extensions": [
-			"ms-vscode.cmake-tools",
-			"twxs.cmake",
-			"ms-vscode.cpptools-themes",
-			"ms-vscode.cpptools-extension-pack",
-			"ms-vscode.cpptools"
-		],
+                "ms-vscode.cmake-tools",
+                "twxs.cmake",
+                "ms-vscode.cpptools-themes",
+                "llvm-vs-code-extensions.vscode-clangd"
+        ],
         "workspaceMount": "source=${localWorkspaceFolder}/firmware,target=/firmware,type=bind,consistency=delegated",
         "workspaceFolder": "/firmware",
         "settings": {
-                "clangd.path": "clangd-14"
+                "clangd.path": "clangd",
+                "clangd.arguments": [
+                        "--compile-commands-dir=${workspaceFolder}/build",
+                        "--background-index",
+                        "--clang-tidy"
+                ],
+                "C_Cpp.intelliSenseEngine": "disabled"
         }
 }
-

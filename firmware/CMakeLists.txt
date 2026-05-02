@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.13)
 
 find_package(Perl)
 if(NOT PERL_FOUND)
@@ -6,8 +6,6 @@ if(NOT PERL_FOUND)
 endif()
 
 set(MAKE_FS_DATA_SCRIPT /pico-sdk/lib/lwip/src/apps/http/makefsdata/makefsdata)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts-ts -fno-exceptions -fno-rtti")
 
 execute_process(COMMAND
         perl ${MAKE_FS_DATA_SCRIPT}
@@ -24,12 +22,12 @@ include(pico_sdk_import.cmake)
 
 project(pico_examples C CXX ASM)
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if (PICO_SDK_VERSION_STRING VERSION_LESS "1.3.0")
-    message(FATAL_ERROR "Raspberry Pi Pico SDK version 1.3.0 (or later) required. Your version is ${PICO_SDK_VERSION_STRING}")
+if (PICO_SDK_VERSION_STRING VERSION_LESS "2.0.0")
+    message(FATAL_ERROR "Raspberry Pi Pico SDK version 2.0.0 (or later) required. Your version is ${PICO_SDK_VERSION_STRING}")
 endif()
 
 pico_sdk_init()
@@ -67,10 +65,13 @@ target_link_libraries(blink
 	#pico_cyw43_arch_lwip_poll
 	)
 
+target_compile_options(blink PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>
+        )
+
 target_include_directories(blink PRIVATE . ${CMAKE_CURRENT_LIST_DIR})
 
 pico_enable_stdio_uart(blink 1)
 
 # create map/bin/hex file etc.
 pico_add_extra_outputs(blink)
-

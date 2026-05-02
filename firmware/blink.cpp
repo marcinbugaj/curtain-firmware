@@ -149,8 +149,7 @@ void doJob() {
   auto uart = createUART();
   auto wave = createStepPinSqWave();
   auto enn = createENNPin();
-  auto driver = std::move(
-      tmc2209::create(std::move(uart), std::move(wave), std::move(enn)));
+  auto driver = tmc2209::create(std::move(uart), std::move(wave), std::move(enn));
   driver->initialize();
 
   testRun(*driver);
