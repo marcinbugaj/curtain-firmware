@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "optional": "cpp"
+    },
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build",
+        "--background-index",
+        "--clang-tidy",
+        "--query-driver=/usr/bin/arm-none-eabi-*"
+    ],
+    "C_Cpp.intelliSenseEngine": "disabled"
+}
