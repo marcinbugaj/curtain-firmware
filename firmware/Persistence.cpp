@@ -5,6 +5,10 @@
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 
+#ifndef PICO_FLASH_SIZE_BYTES
+#define PICO_FLASH_SIZE_BYTES (2 * 1024 * 1024) // Pico W: 2 MB
+#endif
+
 extern char __flash_binary_end;
 size_t end = (size_t)&__flash_binary_end;
 
@@ -20,7 +24,12 @@ constexpr size_t alignToFlashPageSize(size_t size) {
   return alignTo(size, FLASH_PAGE_SIZE);
 }
 
-const uint8_t *ConfigAddress = (uint8_t *)(alignToFlashSectorSize(end));
+// Store config in the LAST flash sector: a fixed location, independent of
+// binary size and always clear of the running binary. (Writing at
+// alignToFlashSectorSize(__flash_binary_end) -- the sector immediately after
+// the binary -- was where saveConfig hung.)
+const uint8_t *ConfigAddress =
+    (uint8_t *)(XIP_BASE + PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE);
 
 constexpr const char Magical[] = "magical string";
 
