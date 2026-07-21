@@ -9,19 +9,12 @@
 #define PICO_FLASH_SIZE_BYTES (2 * 1024 * 1024) // Pico W: 2 MB
 #endif
 
-extern char __flash_binary_end;
-size_t end = (size_t)&__flash_binary_end;
-
 constexpr size_t alignTo(size_t pointer, size_t alignment) {
   return ((pointer + alignment - 1) / alignment) * alignment;
 }
 
 constexpr size_t alignToFlashSectorSize(size_t size) {
   return alignTo(size, FLASH_SECTOR_SIZE);
-}
-
-constexpr size_t alignToFlashPageSize(size_t size) {
-  return alignTo(size, FLASH_PAGE_SIZE);
 }
 
 // Store config in the LAST flash sector: a fixed location, independent of
