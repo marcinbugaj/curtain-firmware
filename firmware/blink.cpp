@@ -2,7 +2,6 @@
 #include "hardware/rtc.h"
 #include "hardware/watchdog.h"
 #include "pico/cyw43_arch.h"
-#include "pico/multicore.h"
 #include "pico/stdlib.h"
 #include "pico/time.h"
 #include "pico/types.h"

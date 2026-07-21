@@ -59,7 +59,6 @@ target_link_libraries(blink
 	pico_stdlib
 	hardware_pwm
 	hardware_rtc
-	pico_multicore
 	pico_cyw43_arch_lwip_threadsafe_background
 	pico_lwip_http
 	#pico_cyw43_arch_lwip_poll
