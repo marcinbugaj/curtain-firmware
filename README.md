@@ -95,3 +95,7 @@ toolchain builds `blink.uf2`, which you drag-and-drop onto the Pico W in BOOTSEL
 Working personal project, still evolving. The calibration-persistence work described in
 the docs is the main open item. Not intended as a polished, general-purpose product —
 expect rough edges.
+
+## Device - as assembled
+
+![device](device.jpeg)
